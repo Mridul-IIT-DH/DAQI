@@ -85,6 +85,44 @@ app.get("/api/data", async (req, res) => {
         res.status(500).json({ error: "Failed to fetch data from blockchain." });
     }
 });
+
+app.get("/api/last10", async (req, res) => {
+    if (!airQualityContract) {
+        await initWeb3();
+        if (!airQualityContract) {
+            return res.status(500).json({ error: "Contract not initialized. Check server logs." });
+        }
+    }
+
+    try {
+        const readingCount = await airQualityContract.methods.getReadingCount().call();
+        const count = Number(readingCount); // Convert BigInt to Number for calculations
+        const readings = [];
+
+        if (count === 0) {
+            return res.json({ message: "No readings available yet." });
+        }
+
+        const numToFetch = Math.min(10, count);
+        for (let i = count - numToFetch; i < count; i++) {
+            const reading = await airQualityContract.methods.getReading(i).call();
+            readings.push({
+                timestamp: new Date(Number(reading[0]) * 1000).toLocaleString(), // Convert to human-readable format
+                co2: reading[1].toString(),
+                no2: reading[2].toString(),
+                pm25: reading[3].toString(),
+                pm10: reading[4].toString(),
+            });
+        }
+
+        res.json(readings);
+
+    } catch (error) {
+        console.error("Error fetching last 10 readings:", error);
+        res.status(500).json({ error: "Failed to fetch last 10 readings from blockchain." });
+    }
+});
+
 // --- API Endpoint END ---
 
 // Serve the main HTML file for any other GET request (helps with SPA routing if needed)
